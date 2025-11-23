@@ -1,0 +1,7 @@
+{
+  "name": "Copy of Oakley Medical Voice Assistant",
+  "description": "A conversational AI assistant for prescription renewal requests using Gemini Live API.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
