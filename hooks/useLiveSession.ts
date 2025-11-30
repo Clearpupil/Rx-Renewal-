@@ -74,11 +74,11 @@ export const useLiveSession = ({ onDataCollected, onError }: UseLiveSessionProps
 
   const startSession = useCallback(async () => {
     try {
-      if (!process.env.API_KEY) {
-        throw new Error("API Key not found");
+      if (!process.env.GEMINI_API_KEY) {
+        throw new Error("GEMINI_API_KEY not found. Please add it to .env.local");
       }
 
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       
       // Initialize Audio Contexts
       inputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });

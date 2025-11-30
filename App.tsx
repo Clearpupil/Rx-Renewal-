@@ -1,23 +1,27 @@
 
 import React, { useState } from 'react';
-import { 
-  Mic, 
-  MicOff, 
-  Stethoscope, 
-  AlertCircle, 
-  CheckCircle, 
-  CreditCard, 
-  Send, 
-  RefreshCw, 
-  ChevronRight, 
-  FileText, 
-  Lock, 
+import {
+  Mic,
+  MicOff,
+  Stethoscope,
+  AlertCircle,
+  CheckCircle,
+  CreditCard,
+  Send,
+  RefreshCw,
+  ChevronRight,
+  FileText,
+  Lock,
   ExternalLink,
-  Accessibility
+  Accessibility,
+  Edit,
+  Save
 } from 'lucide-react';
 import { AppState, PrescriptionRequest } from './types';
 import { useLiveSession } from './hooks/useLiveSession';
 import Visualizer from './components/Visualizer';
+import EditableField from './components/EditableField';
+import { validatePrescriptionData, sanitizeData } from './utils/validation';
 
 type PageView = 'HOME' | 'PRESCRIPTION';
 
@@ -29,10 +33,24 @@ const App: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [collectedData, setCollectedData] = useState<PrescriptionRequest | null>(null);
   const [hasClickedPayment, setHasClickedPayment] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editedData, setEditedData] = useState<PrescriptionRequest | null>(null);
 
   const handleDataCollected = (data: PrescriptionRequest) => {
-    setCollectedData(data);
-    setAppState(AppState.REVIEW);
+    // Sanitize and validate data
+    const sanitized = sanitizeData(data);
+    const validation = validatePrescriptionData(sanitized);
+
+    if (validation.isValid) {
+      setCollectedData(sanitized);
+      setValidationErrors([]);
+      setAppState(AppState.REVIEW);
+    } else {
+      setValidationErrors(validation.errors);
+      setErrorMsg('Some information appears incomplete. Please try again.');
+      setAppState(AppState.ERROR);
+    }
   };
 
   const handleError = (msg: string) => {
@@ -59,8 +77,37 @@ const App: React.FC = () => {
   const handleReset = () => {
     setCollectedData(null);
     setErrorMsg(null);
+    setValidationErrors([]);
     setHasClickedPayment(false);
+    setIsEditMode(false);
+    setEditedData(null);
     setAppState(AppState.WELCOME);
+  };
+
+  const handleEditToggle = () => {
+    if (!isEditMode && collectedData) {
+      setEditedData({ ...collectedData });
+    }
+    setIsEditMode(!isEditMode);
+  };
+
+  const handleSaveEdits = () => {
+    if (editedData) {
+      const validation = validatePrescriptionData(editedData);
+      if (validation.isValid) {
+        setCollectedData(editedData);
+        setIsEditMode(false);
+        setValidationErrors([]);
+      } else {
+        setValidationErrors(validation.errors);
+      }
+    }
+  };
+
+  const handleFieldChange = (field: keyof PrescriptionRequest, value: string) => {
+    if (editedData) {
+      setEditedData({ ...editedData, [field]: value });
+    }
   };
 
   const handleProceedToPayment = () => {
@@ -214,14 +261,16 @@ ${collectedData.fullName}
             </p>
           </div>
           
-          <button 
+          <button
             onClick={handleStartConsultation}
             className="w-full group relative flex items-center justify-center py-4 px-6 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-teal-500/30"
+            aria-label="Start voice consultation with Ava"
+            role="button"
           >
-            <Mic className="w-5 h-5 mr-2" />
+            <Mic className="w-5 h-5 mr-2" aria-hidden="true" />
             Start Voice Request
           </button>
-          <p className="text-xs text-slate-400">Microphone access required</p>
+          <p className="text-xs text-slate-400" role="note">Microphone access required</p>
         </div>
       )}
 
@@ -239,21 +288,22 @@ ${collectedData.fullName}
             </div>
             
             <div className="mt-8 text-center max-w-xs">
-              <h3 className="text-lg font-semibold text-slate-800">
+              <h3 className="text-lg font-semibold text-slate-800" aria-live="polite" aria-atomic="true">
                 {appState === AppState.CONNECTING ? "Connecting to Ava..." : (isSpeaking ? "Ava is speaking..." : "Listening...")}
               </h3>
-              <p className="text-slate-400 text-sm mt-2 leading-snug">
+              <p className="text-slate-400 text-sm mt-2 leading-snug" role="status">
                  {appState === AppState.CONNECTING ? "Establishing secure connection." : "Please speak clearly to provide your details and medication list."}
               </p>
             </div>
           </div>
 
-          <button 
+          <button
             onClick={handleEndConsultation}
             className="mt-auto flex items-center justify-center w-12 h-12 rounded-full bg-slate-100 text-slate-500 hover:bg-red-50 hover:text-red-500 transition-colors"
+            aria-label="Cancel consultation and end voice session"
             title="Cancel Consultation"
           >
-            <MicOff className="w-5 h-5" />
+            <MicOff className="w-5 h-5" aria-hidden="true" />
           </button>
         </div>
       )}
@@ -261,58 +311,121 @@ ${collectedData.fullName}
       {/* State: REVIEW */}
       {appState === AppState.REVIEW && collectedData && (
         <div className="space-y-6 py-6">
-          <div className="flex items-center space-x-3 text-teal-700 mb-2">
-            <CheckCircle className="w-6 h-6" />
-            <h2 className="text-xl font-bold text-slate-800">Review Information</h2>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center space-x-3 text-teal-700">
+              <CheckCircle className="w-6 h-6" />
+              <h2 className="text-xl font-bold text-slate-800">Review Information</h2>
+            </div>
+            <button
+              onClick={isEditMode ? handleSaveEdits : handleEditToggle}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                isEditMode
+                  ? 'bg-teal-600 hover:bg-teal-700 text-white'
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+              }`}
+            >
+              {isEditMode ? (
+                <>
+                  <Save className="w-4 h-4" />
+                  <span>Save</span>
+                </>
+              ) : (
+                <>
+                  <Edit className="w-4 h-4" />
+                  <span>Edit</span>
+                </>
+              )}
+            </button>
           </div>
-          <p className="text-slate-500 text-sm">Please verify the details Ava collected before proceeding to payment.</p>
+
+          <p className="text-slate-500 text-sm">
+            {isEditMode
+              ? 'Edit any fields that need correction, then click Save.'
+              : 'Please verify the details Ava collected before proceeding to payment.'}
+          </p>
+
+          {validationErrors.length > 0 && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <p className="text-xs font-bold text-red-700 uppercase mb-2">Please fix these issues:</p>
+              <ul className="space-y-1">
+                {validationErrors.map((error, idx) => (
+                  <li key={idx} className="text-sm text-red-600 flex items-start">
+                    <span className="mr-2">•</span>
+                    <span>{error}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           
           <div className="bg-slate-50 rounded-xl p-6 space-y-4 border border-slate-100 text-sm">
-             <div className="grid grid-cols-2 gap-4">
-               <div>
-                 <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Patient Name</span>
-                 <p className="font-medium text-slate-900">{collectedData.fullName}</p>
-               </div>
-               <div>
-                 <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Date of Birth</span>
-                 <p className="text-slate-700 font-medium">{collectedData.dateOfBirth}</p>
-               </div>
-             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <EditableField
+                label="Patient Name"
+                value={isEditMode ? editedData?.fullName || '' : collectedData.fullName}
+                isEditing={isEditMode}
+                onChange={(val) => handleFieldChange('fullName', val)}
+              />
+              <EditableField
+                label="Date of Birth"
+                value={isEditMode ? editedData?.dateOfBirth || '' : collectedData.dateOfBirth}
+                isEditing={isEditMode}
+                onChange={(val) => handleFieldChange('dateOfBirth', val)}
+              />
+            </div>
 
-             <div className="grid grid-cols-2 gap-4">
-               <div>
-                  <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">WhatsApp</span>
-                  <p className="text-slate-700 font-medium">{collectedData.whatsappNumber}</p>
-               </div>
-               <div>
-                  <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Pharmacy</span>
-                  <p className="text-slate-700 font-medium">{collectedData.pharmacy}</p>
-               </div>
-             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <EditableField
+                label="WhatsApp"
+                value={isEditMode ? editedData?.whatsappNumber || '' : collectedData.whatsappNumber}
+                isEditing={isEditMode}
+                onChange={(val) => handleFieldChange('whatsappNumber', val)}
+              />
+              <EditableField
+                label="Pharmacy"
+                value={isEditMode ? editedData?.pharmacy || '' : collectedData.pharmacy}
+                isEditing={isEditMode}
+                onChange={(val) => handleFieldChange('pharmacy', val)}
+              />
+            </div>
 
-             <div>
-               <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Allergies</span>
-               <p className="text-slate-700 font-medium">{collectedData.allergies}</p>
-             </div>
-             
-             <div className="pt-2 border-t border-slate-200">
-               <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Current Medications</span>
-               <p className="text-slate-700 whitespace-pre-wrap">{collectedData.currentMedications}</p>
-             </div>
+            <EditableField
+              label="Allergies"
+              value={isEditMode ? editedData?.allergies || '' : collectedData.allergies}
+              isEditing={isEditMode}
+              onChange={(val) => handleFieldChange('allergies', val)}
+            />
 
-             <div className="pt-2 border-t border-slate-200">
-               <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Renewal Request</span>
-               <p className="font-semibold text-teal-700">{collectedData.renewalRequest}</p>
-             </div>
+            <div className="pt-2 border-t border-slate-200">
+              <EditableField
+                label="Current Medications"
+                value={isEditMode ? editedData?.currentMedications || '' : collectedData.currentMedications}
+                isEditing={isEditMode}
+                onChange={(val) => handleFieldChange('currentMedications', val)}
+                multiline={true}
+              />
+            </div>
+
+            <div className="pt-2 border-t border-slate-200">
+              <EditableField
+                label="Renewal Request"
+                value={isEditMode ? editedData?.renewalRequest || '' : collectedData.renewalRequest}
+                isEditing={isEditMode}
+                onChange={(val) => handleFieldChange('renewalRequest', val)}
+                multiline={true}
+              />
+            </div>
           </div>
 
-          <button 
-            onClick={handleProceedToPayment}
-            className="w-full flex items-center justify-center py-4 px-6 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl transition-all shadow-lg"
-          >
-            Confirm & Proceed to Payment
-            <ChevronRight className="w-5 h-5 ml-2" />
-          </button>
+          {!isEditMode && (
+            <button
+              onClick={handleProceedToPayment}
+              className="w-full flex items-center justify-center py-4 px-6 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl transition-all shadow-lg"
+            >
+              Confirm & Proceed to Payment
+              <ChevronRight className="w-5 h-5 ml-2" />
+            </button>
+          )}
           
            <button onClick={handleReset} className="w-full text-center text-slate-400 text-xs hover:text-slate-600">
             Discard & Start Over
@@ -440,7 +553,22 @@ ${collectedData.fullName}
           </div>
           <h3 className="text-lg font-bold text-slate-800">Something went wrong</h3>
           <p className="text-slate-500 text-sm">{errorMsg || "An unexpected error occurred."}</p>
-          <button 
+
+          {validationErrors.length > 0 && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-left">
+              <p className="text-xs font-bold text-red-700 uppercase mb-2">Issues found:</p>
+              <ul className="space-y-1">
+                {validationErrors.map((error, idx) => (
+                  <li key={idx} className="text-sm text-red-600 flex items-start">
+                    <span className="mr-2">•</span>
+                    <span>{error}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <button
             onClick={handleReset}
             className="flex items-center justify-center w-full py-3 px-6 bg-slate-900 text-white font-medium rounded-xl hover:bg-slate-800 transition-colors"
           >
