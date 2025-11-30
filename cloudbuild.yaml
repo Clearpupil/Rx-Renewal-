@@ -8,14 +8,14 @@ steps:
       - '--build-arg'
       - 'GEMINI_API_KEY=$$GEMINI_API_KEY'
       - '-t'
-      - 'gcr.io/rxrenewal/oakley-voice-assistant:$COMMIT_SHA'
+      - 'northamerica-northeast1-docker.pkg.dev/rxrenewal/cloud-run-source-deploy/oakley-voice-assistant:$COMMIT_SHA'
       - '.'
     secretEnv: ['GEMINI_API_KEY']
 
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - 'gcr.io/rxrenewal/oakley-voice-assistant:$COMMIT_SHA'
+      - 'northamerica-northeast1-docker.pkg.dev/rxrenewal/cloud-run-source-deploy/oakley-voice-assistant:$COMMIT_SHA'
 
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
@@ -24,7 +24,7 @@ steps:
       - 'deploy'
       - 'oakley-voice-assistant'
       - '--image'
-      - 'gcr.io/rxrenewal/oakley-voice-assistant:$COMMIT_SHA'
+      - 'northamerica-northeast1-docker.pkg.dev/rxrenewal/cloud-run-source-deploy/oakley-voice-assistant:$COMMIT_SHA'
       - '--region'
       - 'northamerica-northeast1'
       - '--platform'
