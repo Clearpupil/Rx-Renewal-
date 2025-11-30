@@ -1,10 +1,9 @@
 steps:
-  # Build the container image with the API key as build arg
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
       - '--build-arg'
-      - 'GEMINI_API_KEY=${_GEMINI_API_KEY}'
+      - 'GEMINI_API_KEY=$$GEMINI_API_KEY'
       - '-t'
       - 'gcr.io/$PROJECT_ID/oakley-voice-assistant:$COMMIT_SHA'
       - '-t'
@@ -12,14 +11,12 @@ steps:
       - '.'
     secretEnv: ['GEMINI_API_KEY']
 
-  # Push the container image to Container Registry
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', 'gcr.io/$PROJECT_ID/oakley-voice-assistant:$COMMIT_SHA']
 
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', 'gcr.io/$PROJECT_ID/oakley-voice-assistant:latest']
 
-  # Deploy to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
@@ -29,19 +26,15 @@ steps:
       - '--image'
       - 'gcr.io/$PROJECT_ID/oakley-voice-assistant:$COMMIT_SHA'
       - '--region'
-      - 'us-west1'
+      - 'northamerica-northeast1'
       - '--platform'
       - 'managed'
       - '--allow-unauthenticated'
 
-# Get the API key from Secret Manager
 availableSecrets:
   secretManager:
     - versionName: projects/$PROJECT_ID/secrets/GEMINI_API_KEY/versions/latest
       env: 'GEMINI_API_KEY'
-
-substitutions:
-  _GEMINI_API_KEY: ''
 
 images:
   - 'gcr.io/$PROJECT_ID/oakley-voice-assistant:$COMMIT_SHA'
