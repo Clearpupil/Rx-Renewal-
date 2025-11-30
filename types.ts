@@ -1,11 +1,22 @@
+export interface EmailJSConfig {
+  serviceId: string;
+  templateId: string;
+  publicKey: string;
+}
+
+export interface TwilioConfig {
+  accountSid: string;
+  authToken: string;
+  fromNumber: string;
+  toNumber: string;
+}
 
 export interface PrescriptionRequest {
-  fullName: string;
+  patientName: string;
   dateOfBirth: string;
   allergies: string;
-  currentMedications: string;
+  medications: string;
   renewalRequest: string;
-  whatsappNumber: string;
   pharmacy: string;
 }
 
