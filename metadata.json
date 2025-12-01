@@ -1,0 +1,7 @@
+{
+  "name": "Oakley Voice Assistant",
+  "description": "A conversational medical assistant for prescription renewals using Gemini Live API, integrated with WhatsApp and Email notifications.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
