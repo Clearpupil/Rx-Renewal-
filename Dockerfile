@@ -1,6 +1,10 @@
 # Stage 1: Build the React application
 FROM node:20-alpine AS builder
 
+# Build argument for API key (passed from Cloud Build)
+ARG GEMINI_API_KEY
+ENV GEMINI_API_KEY=$GEMINI_API_KEY
+
 WORKDIR /app
 
 # Copy package files
@@ -12,7 +16,7 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Build the application
+# Build the application (GEMINI_API_KEY is available during build)
 RUN npm run build
 
 # Stage 2: Serve with nginx
