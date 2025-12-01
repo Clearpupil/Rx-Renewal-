@@ -1,16 +1,28 @@
 # Google Cloud Build configuration for deploying to Cloud Run
 #
 # Prerequisites:
-# 1. Enable Cloud Build, Cloud Run, and Secret Manager APIs in your GCP project
-# 2. Grant Cloud Build service account the following roles:
+# 1. Enable Cloud Build, Cloud Run, Artifact Registry, and Secret Manager APIs:
+#    gcloud services enable cloudbuild.googleapis.com run.googleapis.com \
+#      artifactregistry.googleapis.com secretmanager.googleapis.com
+#
+# 2. Create an Artifact Registry repository:
+#    gcloud artifacts repositories create rx-renewal \
+#      --repository-format=docker \
+#      --location=us-central1 \
+#      --description="Rx Renewal Docker images"
+#
+# 3. Grant Cloud Build service account the following roles:
 #    - Cloud Run Admin
 #    - Secret Manager Secret Accessor
-# 3. Create a secret named GEMINI_API_KEY in Secret Manager
-# 4. Set up a Cloud Build trigger connected to your repository
+#    - Artifact Registry Writer
+#
+# 4. Create a secret named GEMINI_API_KEY in Secret Manager
+# 5. Set up a Cloud Build trigger connected to your repository
 #
 # Required substitution variables (set in Cloud Build trigger or command line):
 # - _REGION: The Cloud Run region (e.g., us-central1)
 # - _SERVICE_NAME: The Cloud Run service name (e.g., rx-renewal)
+# - _REPO_NAME: The Artifact Registry repository name (e.g., rx-renewal)
 
 steps:
   # Build the Docker image with the API key from Secret Manager
@@ -21,21 +33,21 @@ steps:
       - |
         docker build \
           --build-arg GEMINI_API_KEY=$$GEMINI_API_KEY \
-          -t gcr.io/$PROJECT_ID/${_SERVICE_NAME}:$COMMIT_SHA \
-          -t gcr.io/$PROJECT_ID/${_SERVICE_NAME}:latest \
+          -t ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_SERVICE_NAME}:$COMMIT_SHA \
+          -t ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_SERVICE_NAME}:latest \
           .
     secretEnv: ['GEMINI_API_KEY']
 
-  # Push the Docker image to Container Registry
+  # Push the Docker image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - 'gcr.io/$PROJECT_ID/${_SERVICE_NAME}:$COMMIT_SHA'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_SERVICE_NAME}:$COMMIT_SHA'
 
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - 'gcr.io/$PROJECT_ID/${_SERVICE_NAME}:latest'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_SERVICE_NAME}:latest'
 
   # Deploy to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -45,7 +57,7 @@ steps:
       - 'deploy'
       - '${_SERVICE_NAME}'
       - '--image'
-      - 'gcr.io/$PROJECT_ID/${_SERVICE_NAME}:$COMMIT_SHA'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_SERVICE_NAME}:$COMMIT_SHA'
       - '--region'
       - '${_REGION}'
       - '--platform'
@@ -62,10 +74,10 @@ steps:
       - '--max-instances'
       - '10'
 
-# Store images in Container Registry
+# Store images in Artifact Registry
 images:
-  - 'gcr.io/$PROJECT_ID/${_SERVICE_NAME}:$COMMIT_SHA'
-  - 'gcr.io/$PROJECT_ID/${_SERVICE_NAME}:latest'
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_SERVICE_NAME}:$COMMIT_SHA'
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_SERVICE_NAME}:latest'
 
 # Access the secret from Secret Manager
 availableSecrets:
@@ -77,6 +89,7 @@ availableSecrets:
 substitutions:
   _REGION: 'us-central1'
   _SERVICE_NAME: 'rx-renewal'
+  _REPO_NAME: 'rx-renewal'
 
 # Build timeout
 timeout: '1200s'
