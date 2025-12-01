@@ -257,20 +257,42 @@ const App: React.FC = () => {
 
   // --- Chat API (Text Mode) ---
   const startTextSession = async () => {
-    setStatus(ConnectionStatus.CONNECTED);
-    addLog("Text Session Started.", 'system', 'success');
-    
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    chatSessionRef.current = ai.chats.create({
-      model: 'gemini-2.5-flash',
-      config: {
-        systemInstruction: SYSTEM_INSTRUCTION,
-        tools: [{ functionDeclarations: [submitPrescriptionTool, requestPaymentTool] }],
-      },
-    });
+    // Check if API key is configured
+    if (!process.env.API_KEY) {
+      setStatus(ConnectionStatus.ERROR);
+      addLog("API key not configured. Please set GEMINI_API_KEY environment variable.", 'system', 'error');
+      setHasError("API key not configured. Please contact support.");
+      return;
+    }
 
-    // Initial greeting (optional trigger)
-    // await handleTextMessage("Hello"); 
+    setStatus(ConnectionStatus.CONNECTING);
+    addLog("Starting text session...", 'system', 'info');
+
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      chatSessionRef.current = ai.chats.create({
+        model: 'gemini-2.5-flash',
+        config: {
+          systemInstruction: SYSTEM_INSTRUCTION,
+          tools: [{ functionDeclarations: [submitPrescriptionTool, requestPaymentTool] }],
+        },
+      });
+
+      setStatus(ConnectionStatus.CONNECTED);
+      addLog("Text Session Started.", 'system', 'success');
+
+      // Send initial greeting to start the conversation
+      const response = await chatSessionRef.current.sendMessage({ message: "Hello" });
+      const modelText = response.text;
+      if (modelText) {
+        addLog(modelText, 'ai');
+      }
+    } catch (e: any) {
+      console.error("Failed to start text session:", e);
+      setStatus(ConnectionStatus.ERROR);
+      setHasError(e.message || "Failed to connect to chat service");
+      addLog(`Error: ${e.message}`, 'system', 'error');
+    }
   };
 
   const handleTextMessage = async (text: string) => {
