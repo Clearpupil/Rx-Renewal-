@@ -87,8 +87,8 @@ availableSecrets:
 
 # Default substitutions (can be overridden)
 substitutions:
-  _REGION: 'us-central1'
-  _SERVICE_NAME: 'rx-renewal'
+  _REGION: 'northamerica-northeast1'
+  _SERVICE_NAME: 'oakley-rx-renewal'
   _REPO_NAME: 'rx-renewal'
 
 # Build timeout
